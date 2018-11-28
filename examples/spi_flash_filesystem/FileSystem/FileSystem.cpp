@@ -548,7 +548,7 @@ static int write_through_cache(fs_priv_handle_t *fs_priv_handle, const uint8_t *
     return FS_NO_ERROR;
 }
 
-/* Exported Functions */
+/* FileSystem Class Methods */
 
 int FileSystem::format()
 {
@@ -566,7 +566,7 @@ int FileSystem::format()
 
 int FileSystem::open(FileHandle *handle, uint8_t file_id, unsigned int mode, uint8_t *user_flags)
 {
-    int ret;
+	int ret;
     fs_priv_t *fs_priv = &priv;
     fs_priv_handle_t *fs_priv_handle;
 
@@ -642,12 +642,12 @@ int FileSystem::open(FileHandle *handle, uint8_t file_id, unsigned int mode, uin
 
 int FileSystem::close(FileHandle handle)
 {
-    fs_priv_handle_t *fs_priv_handle = (fs_priv_handle_t *)handle;
-
-    if (NULL == fs_priv_handle->fs_priv)
-    	return FS_ERROR_INVALID_HANDLE;
+	if (!is_valid_handle(handle))
+		return FS_ERROR_INVALID_HANDLE;
 
     flush(handle);
+
+	fs_priv_handle_t *fs_priv_handle = (fs_priv_handle_t *)handle;
     free_handle(fs_priv_handle);
 
     return FS_NO_ERROR;
@@ -655,7 +655,10 @@ int FileSystem::close(FileHandle handle)
 
 int FileSystem::write(FileHandle handle, const uint8_t *src, unsigned int size, unsigned int *written)
 {
-    int ret = FS_NO_ERROR;
+	if (!is_valid_handle(handle))
+		return FS_ERROR_INVALID_HANDLE;
+
+	int ret = FS_NO_ERROR;
     fs_priv_handle_t *fs_priv_handle = (fs_priv_handle_t *)handle;
     uint16_t write_size, actual_write;
 
@@ -704,8 +707,11 @@ int FileSystem::write(FileHandle handle, const uint8_t *src, unsigned int size, 
 
 int FileSystem::read(FileHandle handle, uint8_t *dest, unsigned int size, unsigned int *read)
 {
-    fs_priv_handle_t *fs_priv_handle = (fs_priv_handle_t *)handle;
-    fs_priv_t *fs_priv = fs_priv_handle->fs_priv;
+	if (!is_valid_handle(handle))
+		return FS_ERROR_INVALID_HANDLE;
+
+	fs_priv_handle_t *fs_priv_handle = (fs_priv_handle_t *)handle;
+    fs_priv_t *fs_priv = &priv;
 
     /* Reset counter */
     *read = 0;
@@ -760,6 +766,9 @@ int FileSystem::read(FileHandle handle, uint8_t *dest, unsigned int size, unsign
 
 int FileSystem::flush(FileHandle handle)
 {
+	if (!is_valid_handle(handle))
+		return FS_ERROR_INVALID_HANDLE;
+
     fs_priv_handle_t *fs_priv_handle = (fs_priv_handle_t *)handle;
 
     /* Make sure the file is writeable */
@@ -857,6 +866,17 @@ int FileSystem::remove(uint8_t file_id)
     }
 
     return FS_NO_ERROR;
+}
+
+bool FileSystem::is_valid_handle(FileHandle handle)
+{
+	intptr_t base_ptr = (intptr_t)fs_priv_handle_list;
+	intptr_t end_ptr = (size_t)base_ptr + sizeof(fs_priv_handle_list);
+	intptr_t offset = (intptr_t)handle - base_ptr;
+
+	return ((intptr_t)handle >= base_ptr && (intptr_t)handle < end_ptr &&
+			(offset % sizeof(fs_priv_handle_t)) == 0 &&
+			(((fs_priv_handle_t *)handle)->fs_priv == &priv));
 }
 
 FileSystem::FileSystem(SpiFlash &flash_device)

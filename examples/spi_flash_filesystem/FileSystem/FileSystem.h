@@ -44,6 +44,7 @@ class FileSystem
 private:
 	fs_priv_t  priv;
 	fs_priv_handle_t fs_priv_handle_list[FS_MAX_HANDLES];
+	bool is_valid_handle(FileHandle handle);
 
 public:
 	FileSystem(SpiFlash &flash_device);

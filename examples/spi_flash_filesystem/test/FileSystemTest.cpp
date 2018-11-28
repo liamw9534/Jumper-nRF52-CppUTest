@@ -22,6 +22,7 @@ extern "C" {
 
 static S25FL128 *s25fl128;
 static FileSystem *fs;
+static uint8_t big_buffer[8*1024];
 static uint8_t wr_buffer[1024];
 static uint8_t rd_buffer[1024];
 
@@ -79,4 +80,71 @@ TEST(FileSystem, FormatErasesExistingFiles)
 	CHECK_EQUAL(FS_NO_ERROR, fs->close(handle));
 	CHECK_EQUAL(FS_NO_ERROR, fs->format());
 	CHECK_EQUAL(FS_ERROR_FILE_NOT_FOUND, fs->open(&handle, 0, FS_MODE_READONLY, NULL));
+}
+
+IGNORE_TEST(FileSystem, SingleFileFillTheFlash)
+{
+	int ret;
+	FileHandle handle;
+	unsigned int actual, total = 0;
+	const unsigned int max_blocks = s25fl128->get_capacity() / S25FL128_BLOCK_SIZE;
+	const unsigned int max_capacity = max_blocks * (S25FL128_BLOCK_SIZE - S25FL128_PAGE_SIZE);
+
+	CHECK_EQUAL(FS_NO_ERROR, fs->open(&handle, 0, FS_MODE_CREATE, NULL));
+
+	do
+	{
+		ret = fs->write(handle, big_buffer, sizeof(big_buffer), &actual);
+		total += actual;
+	} while (ret == FS_NO_ERROR);
+
+	CHECK_EQUAL(max_capacity, total);
+	CHECK_EQUAL(FS_NO_ERROR, fs->close(handle));
+	CHECK_EQUAL(FS_ERROR_FILESYSTEM_FULL, fs->open(&handle, 0, FS_MODE_CREATE, NULL));
+}
+
+TEST(FileSystem, ManyFilesExhaustAllSectors)
+{
+	FileHandle handle;
+	const unsigned int max_blocks = s25fl128->get_capacity() / S25FL128_BLOCK_SIZE;
+
+	for (unsigned int i = 0; i < max_blocks; i++)
+	{
+		CHECK_EQUAL(FS_NO_ERROR, fs->open(&handle, i, FS_MODE_CREATE, NULL));
+		CHECK_EQUAL(FS_NO_ERROR, fs->close(handle));
+	}
+
+	CHECK_EQUAL(FS_ERROR_FILESYSTEM_FULL, fs->open(&handle, max_blocks, FS_MODE_CREATE, NULL));
+}
+
+TEST(FileSystem, OpenTooManyHandles)
+{
+	FileHandle handle;
+	const unsigned int max_handles = FS_MAX_HANDLES;
+
+	for (unsigned int i = 0; i < max_handles; i++)
+		CHECK_EQUAL(FS_NO_ERROR, fs->open(&handle, i, FS_MODE_CREATE, NULL));
+
+	CHECK_EQUAL(FS_ERROR_NO_FREE_HANDLE, fs->open(&handle, max_handles, FS_MODE_CREATE, NULL));
+}
+
+TEST(FileSystem, RemoveFileAndTryToOpenIt)
+{
+	FileHandle handle;
+
+	CHECK_EQUAL(FS_NO_ERROR, fs->open(&handle, 0, FS_MODE_CREATE, NULL));
+	CHECK_EQUAL(FS_NO_ERROR, fs->close(handle));
+	CHECK_EQUAL(FS_NO_ERROR, fs->remove(0));
+	CHECK_EQUAL(FS_ERROR_FILE_NOT_FOUND, fs->open(&handle, 0, FS_MODE_READONLY, NULL));
+}
+
+TEST(FileSystem, InvalidHandles)
+{
+	FileHandle handle;
+	CHECK_EQUAL(FS_ERROR_INVALID_HANDLE, fs->close((FileHandle)0xdeadbeef));
+	CHECK_EQUAL(FS_ERROR_INVALID_HANDLE, fs->flush((FileHandle)0xdeadbeef));
+	CHECK_EQUAL(FS_ERROR_INVALID_HANDLE, fs->read((FileHandle)0xdeadbeef, NULL, 0, NULL));
+	CHECK_EQUAL(FS_ERROR_INVALID_HANDLE, fs->write((FileHandle)0xdeadbeef, NULL, 0, NULL));
+	CHECK_EQUAL(FS_NO_ERROR, fs->open(&handle, 0, FS_MODE_CREATE, NULL));
+	CHECK_EQUAL(FS_ERROR_INVALID_HANDLE, fs->close((FileHandle)((intptr_t)handle + 1)));
 }
