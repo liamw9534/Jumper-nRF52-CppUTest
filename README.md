@@ -114,7 +114,7 @@ session was launched.
 ## A slightly more sophisticated example
 
 Ok, so the `cpputest_basic` application is very basic and does not really show any
-real C++ testing in an embedded system.  A more slightly more sophisticated example is built-up in
+real C++ testing in an embedded system.  A slightly more sophisticated example is built-up in
 `spi_flash_filesystem`.  This example includes:
 
 - a C++ wrapper for a generic SPI flash device that uses the nRF52 SDK SPI driver
