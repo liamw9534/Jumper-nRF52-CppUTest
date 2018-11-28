@@ -1,0 +1,26 @@
+{
+	"description": "Nrf52-DK",
+	"components": [
+		{
+			"name": "nrf52832",
+			"id": 0,
+			"type": "MCU",
+			"class": "Nrf52832"
+		},
+		{
+			"name": "S25FL128",
+			"id": 2,
+			"type": "Peripheral",
+			"file": "S25FL128.so",
+			"config": {
+				"pins": {
+					"wp": 14,
+					"cs": 15,
+					"sck": 17,
+					"si": 20,
+					"so": 16
+				}
+			}
+		}
+	]
+}
